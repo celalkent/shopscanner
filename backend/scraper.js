@@ -36,7 +36,7 @@ async function scrapeGoogleMaps(location, category, onProgress) {
 
   try {
     onProgress(0, 0, 'Google Maps açılıyor...');
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await sleep(2000);
 
     // Cookie/consent popup kabul et
