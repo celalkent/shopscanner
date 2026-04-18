@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShopScanner — Web Sitesiz Dükkan Bulucu</title>
+  <meta name="description" content="Çevremdeki web sitesi olmayan dükkanları Google Maps'ten otomatik tara ve listele." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Background orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="app">
+    <!-- ── Header ── -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🔍</span>
+        <div>
+          <h1 class="logo-title">ShopScanner</h1>
+          <p class="logo-sub">Web Sitesiz Dükkan Bulucu</p>
+        </div>
+      </div>
+      <div class="header-badge">Google Maps Scraper</div>
+    </header>
+
+    <!-- ── Main Card ── -->
+    <main class="main">
+      <!-- Search Form -->
+      <section class="card form-card" id="formSection">
+        <h2 class="section-title">Arama Ayarları</h2>
+
+        <!-- Location Mode Toggle -->
+        <div class="toggle-group" id="locationToggle">
+          <button class="toggle-btn active" id="btnAutoLoc" onclick="setLocationMode('auto')">
+            <span>📍</span> Mevcut Konumum
+          </button>
+          <button class="toggle-btn" id="btnManualLoc" onclick="setLocationMode('manual')">
+            <span>✏️</span> Adres Gir
+          </button>
+        </div>
+
+        <!-- Auto Location Status -->
+        <div class="location-status" id="autoLocStatus">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Konumunuz alınmadı. Tarama başlatınca izin isteyeceğiz.</span>
+        </div>
+
+        <!-- Manual Address Input -->
+        <div class="input-group hidden" id="manualLocGroup">
+          <label class="input-label" for="manualAddress">Şehir / Semt / Adres</label>
+          <input
+            class="input-field"
+            id="manualAddress"
+            type="text"
+            placeholder="örn: Kadıköy İstanbul, Bağcılar veya Atatürk Bulvarı Ankara"
+          />
+        </div>
+
+        <!-- Category -->
+        <div class="input-group">
+          <label class="input-label">Kategori</label>
+          <div class="category-grid">
+            <button class="cat-btn active" data-cat="kafe" onclick="selectCategory(this, 'kafe')">
+              ☕ Kafe
+            </button>
+            <button class="cat-btn" data-cat="restoran" onclick="selectCategory(this, 'restoran')">
+              🍽️ Restoran
+            </button>
+            <button class="cat-btn" data-cat="otel" onclick="selectCategory(this, 'otel')">
+              🏨 Otel / Apart
+            </button>
+          </div>
+        </div>
+
+        <!-- Scan button -->
+        <button class="btn-scan" id="btnScan" onclick="startScan()">
+          <span class="btn-icon">🚀</span>
+          <span id="btnScanText">Taramayı Başlat</span>
+        </button>
+      </section>
+
+      <!-- Progress Section (hidden initially) -->
+      <section class="card progress-card hidden" id="progressSection">
+        <div class="progress-header">
+          <div class="spinner" id="progressSpinner"></div>
+          <div>
+            <p class="progress-label" id="progressMessage">Başlatılıyor...</p>
+            <p class="progress-sub" id="progressSub">Lütfen bekleyin</p>
+          </div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+        <div class="progress-stats">
+          <div class="stat">
+            <span class="stat-num" id="statScanned">0</span>
+            <span class="stat-label">Taranan</span>
+          </div>
+          <div class="stat accent">
+            <span class="stat-num" id="statFound">0</span>
+            <span class="stat-label">Web Sitesiz</span>
+          </div>
+        </div>
+        <button class="btn-cancel" onclick="cancelScan()">✕ İptal Et</button>
+      </section>
+
+      <!-- Results Section (hidden initially) -->
+      <section class="hidden" id="resultsSection">
+        <!-- Result header -->
+        <div class="results-header">
+          <div>
+            <h2 class="results-title">Sonuçlar</h2>
+            <p class="results-sub" id="resultsSub"></p>
+          </div>
+          <div class="export-btns">
+            <button class="btn-export btn-csv" id="btnCsv" onclick="exportCSV()">
+              📊 CSV İndir
+            </button>
+            <button class="btn-export btn-pdf" id="btnPdf" onclick="exportPDF()">
+              📄 PDF İndir
+            </button>
+            <button class="btn-export btn-new" onclick="resetApp()">
+              🔄 Yeni Tarama
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+          <input
+            class="filter-input"
+            id="filterInput"
+            type="text"
+            placeholder="🔎 İsim veya adrese göre filtrele..."
+            oninput="filterResults()"
+          />
+          <span class="filter-count" id="filterCount"></span>
+        </div>
+
+        <!-- Cards grid -->
+        <div class="results-grid" id="resultsGrid"></div>
+
+        <!-- Empty state -->
+        <div class="empty-state hidden" id="emptyState">
+          <div class="empty-icon">🎉</div>
+          <h3>Harika haber!</h3>
+          <p>Bu arama için web sitesiz dükkan bulunamadı.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Kişisel / araştırma amaçlı kullanım için geliştirilmiştir.
+    </footer>
+  </div>
+
+  <!-- config.js is generated by GitHub Actions and contains the production API URL -->
+  <!-- In local dev it won't exist, app.js falls back to localhost automatically -->
+  <script src="config.js" onerror="void(0)"></script>
+  <script src="app.js"></script>
+</body>
+</html>

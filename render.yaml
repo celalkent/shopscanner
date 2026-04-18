@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: shopscanner-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npx playwright install chromium --with-deps
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DELAY_MS
+        value: 2000
+      - key: MAX_RESULTS
+        value: 50
+      - key: NODE_ENV
+        value: production
