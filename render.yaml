@@ -1,10 +1,10 @@
 services:
   - type: web
     name: shopscanner-backend
-    runtime: node
+    runtime: docker
     rootDir: backend
-    buildCommand: npm install && npx playwright install chromium --with-deps
-    startCommand: node server.js
+    # buildCommand and startCommand are not needed for docker runtime
+
     envVars:
       - key: PORT
         value: 10000
