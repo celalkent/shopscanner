@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ShopScanner — Web Sitesiz Dükkan Bulucu</title>
   <meta name="description" content="Çevremdeki web sitesi olmayan dükkanları Google Maps'ten otomatik tara ve listele." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -106,6 +105,15 @@
             <span class="stat-label">Web Sitesiz</span>
           </div>
         </div>
+        
+        <!-- Live Found Area -->
+        <div class="live-results-area" id="liveResultsArea">
+          <h4 class="live-results-title">Canlı Sonuç Akışı</h4>
+          <ul class="live-results-list" id="liveResultsList">
+            <li class="live-results-empty">Tarama bekleniyor...</li>
+          </ul>
+        </div>
+        
         <button class="btn-cancel" onclick="cancelScan()">✕ İptal Et</button>
       </section>
 

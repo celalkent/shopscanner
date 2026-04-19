@@ -27,6 +27,16 @@ app.use(express.static(path.join(__dirname, '..', 'frontend')));
 // Aktif joblar: { jobId: { status, progress, results, error } }
 const jobs = {};
 
+// Eski jobları temizlemek için çöp toplayıcı (Her 1 saatte bir çalışır, 2 saatten eski jobları siler)
+setInterval(() => {
+  const now = Date.now();
+  for (const jobId in jobs) {
+    if (jobs[jobId].createdAt && (now - jobs[jobId].createdAt > 2 * 60 * 60 * 1000)) {
+      delete jobs[jobId];
+    }
+  }
+}, 60 * 60 * 1000);
+
 // ─── POST /api/scan ─────────────────────────────────────────────────────────
 // Yeni bir tarama başlatır, jobId döner
 app.post('/api/scan', async (req, res) => {
@@ -50,10 +60,11 @@ app.post('/api/scan', async (req, res) => {
   // Taramayı arka planda başlat
   (async () => {
     try {
-      const results = await scrapeGoogleMaps(location, category, (scanned, found, message) => {
+      const results = await scrapeGoogleMaps(location, category, (scanned, found, message, partial) => {
         jobs[jobId].scanned = scanned;
         jobs[jobId].found = found;
         jobs[jobId].message = message;
+        if(partial) jobs[jobId].results = partial;
       });
 
       jobs[jobId].results = results;
@@ -88,7 +99,7 @@ app.get('/api/status/:jobId', (req, res) => {
       scanned: j.scanned,
       found: j.found,
       message: j.message,
-      results: j.status === 'done' ? j.results : [],
+      results: j.results || [],
       error: j.error,
     });
     res.write(`data: ${payload}\n\n`);
@@ -112,7 +123,7 @@ app.get('/api/results/:jobId/csv', (req, res) => {
   const job = jobs[req.params.jobId];
   if (!job || job.status !== 'done') return res.status(404).json({ error: 'Sonuç yok.' });
 
-  const header = 'İşyeri Adı,Kategori,Adres,Telefon,Puan,Google Maps Linki\n';
+  const header = 'İşyeri Adı,Kategori,Adres,Telefon,Puan,Yorum Sayısı,Fiyat Seviyesi,Açık/Kapalı,Çalışma Saatleri,Erişilebilirlik,Enlem,Boylam,Place ID,Google Maps Linki\n';
   const rows = job.results
     .map((r) =>
       [
@@ -121,6 +132,14 @@ app.get('/api/results/:jobId/csv', (req, res) => {
         `"${(r.address || '').replace(/"/g, '""')}"`,
         `"${(r.phone || '').replace(/"/g, '""')}"`,
         `"${r.rating || ''}"`,
+        `"${r.reviewCount || ''}"`,
+        `"${r.priceLevel || ''}"`,
+        `"${r.openNow === true ? 'Açık' : r.openNow === false ? 'Kapalı' : 'Bilinmiyor'}"`,
+        `"${(r.openHoursText || '').replace(/"/g, '""')}"`,
+        `"${(r.accessibility || []).join('; ').replace(/"/g, '""')}"`,
+        `"${r.lat || ''}"`,
+        `"${r.lng || ''}"`,
+        `"${r.placeId || ''}"`,
         `"${r.mapsUrl || ''}"`,
       ].join(',')
     )
@@ -143,10 +162,10 @@ app.get('/api/results/:jobId/pdf', (req, res) => {
   doc.pipe(res);
 
   // Başlık
-  doc.fontSize(22).font('Helvetica-Bold').text('Web Sitesiz Dükkanlar Raporu', { align: 'center' });
+  doc.fontSize(22).font('Helvetica-Bold').text('Web Sitesiz Dukkanlar Raporu', { align: 'center' });
   doc.moveDown(0.3);
-  doc.fontSize(11).font('Helvetica').text(`Oluşturulma: ${new Date().toLocaleString('tr-TR')}`, { align: 'center' });
-  doc.fontSize(11).text(`Toplam: ${job.results.length} işyeri`, { align: 'center' });
+  doc.fontSize(11).font('Helvetica').text(`Olusturulma: ${new Date().toLocaleString('tr-TR')}`, { align: 'center' });
+  doc.fontSize(11).text(`Toplam: ${job.results.length} isyeri`, { align: 'center' });
   doc.moveDown(1);
 
   // Ayırıcı çizgi
@@ -154,16 +173,32 @@ app.get('/api/results/:jobId/pdf', (req, res) => {
   doc.moveDown(0.5);
 
   job.results.forEach((r, i) => {
-    if (doc.y > 700) doc.addPage();
+    if (doc.y > 680) doc.addPage();
 
     doc.fontSize(13).font('Helvetica-Bold').text(`${i + 1}. ${r.name || '-'}`);
     doc.fontSize(10).font('Helvetica');
 
-    if (r.category) doc.text(`Kategori   : ${r.category}`);
-    if (r.address)  doc.text(`Adres      : ${r.address}`);
-    if (r.phone)    doc.text(`Telefon    : ${r.phone}`);
-    if (r.rating)   doc.text(`Puan       : ${r.rating}`);
-    if (r.mapsUrl)  doc.text(`Harita     : ${r.mapsUrl}`, { link: r.mapsUrl, underline: true, ellipsis: true });
+    if (r.category)   doc.text(`Kategori       : ${r.category}`);
+    if (r.address)    doc.text(`Adres          : ${r.address}`);
+    if (r.phone)      doc.text(`Telefon        : ${r.phone}`);
+    if (r.rating)     doc.text(`Puan           : ${r.rating} yildiz`);
+    if (r.reviewCount) doc.text(`Yorum Sayisi   : ${r.reviewCount}`);
+    if (r.priceLevel) doc.text(`Fiyat Seviyesi : ${r.priceLevel}`);
+    
+    // Açık/Kapalı
+    const openStatus = r.openNow === true ? 'Acik' : r.openNow === false ? 'Kapali' : 'Bilinmiyor';
+    doc.text(`Durum          : ${openStatus}`);
+    if (r.openHoursText) doc.text(`Calisma Saati  : ${r.openHoursText}`);
+    
+    // Erişilebilirlik
+    if (r.accessibility && r.accessibility.length > 0) {
+      doc.text(`Erisebilirlik  : ${r.accessibility.join(', ')}`);
+    }
+    
+    // Koordinatlar
+    if (r.lat && r.lng)  doc.text(`Koordinat      : ${r.lat}, ${r.lng}`);
+    if (r.placeId)       doc.text(`Place ID       : ${r.placeId}`);
+    if (r.mapsUrl)       doc.text(`Harita         : ${r.mapsUrl}`, { link: r.mapsUrl, underline: true, ellipsis: true });
 
     doc.moveDown(0.4);
     doc.moveTo(50, doc.y).lineTo(545, doc.y).lineWidth(0.5).stroke('#cccccc');

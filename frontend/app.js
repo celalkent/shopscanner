@@ -144,6 +144,20 @@ function updateProgress(data) {
     document.getElementById('progressSpinner').style.display = 'none';
     document.getElementById('progressMessage').textContent = '✅ ' + data.message;
   }
+
+  // Live Results rendering
+  const list = document.getElementById('liveResultsList');
+  if (data.results && data.results.length > 0 && data.status !== 'done') {
+    list.innerHTML = '';
+    data.results.forEach(r => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span style="color:var(--accent-2)">🟢</span> <strong>${escHtml(r.name)}</strong> <span style="font-size:0.8rem; color:var(--text-3)">— ${escHtml(r.category)}</span>`;
+      list.appendChild(li);
+    });
+    // Scroll to bottom
+    const area = document.getElementById('liveResultsArea');
+    area.scrollTop = area.scrollHeight;
+  }
 }
 
 function resetProgress() {
@@ -153,6 +167,7 @@ function resetProgress() {
   document.getElementById('progressMessage').textContent = 'Başlatılıyor...';
   document.getElementById('progressSub').textContent = 'Lütfen bekleyin';
   document.getElementById('progressSpinner').style.display = '';
+  document.getElementById('liveResultsList').innerHTML = '<li class="live-results-empty">Tarama bekleniyor...</li>';
 }
 
 // ── Cancel ───────────────────────────────────────
@@ -192,18 +207,97 @@ function renderCards(data) {
     card.className = 'result-card';
     card.style.animationDelay = `${Math.min(i * 0.05, 0.5)}s`;
 
+    // Open/Closed badge
+    let statusBadge = '';
+    if (r.openNow === true) {
+      statusBadge = '<span class="badge badge-open">🟢 Açık</span>';
+    } else if (r.openNow === false) {
+      statusBadge = '<span class="badge badge-closed">🔴 Kapalı</span>';
+    }
+
+    // Price level badge
+    let priceBadge = '';
+    if (r.priceLevel) {
+      priceBadge = `<span class="badge badge-price">${escHtml(r.priceLevel)}</span>`;
+    }
+
+    // Star rating visual
+    let ratingHtml = '';
+    if (r.rating) {
+      const numRating = parseFloat(r.rating.replace(',', '.'));
+      const fullStars = Math.floor(numRating);
+      const halfStar = numRating - fullStars >= 0.3;
+      let stars = '';
+      for (let s = 0; s < fullStars; s++) stars += '★';
+      if (halfStar) stars += '½';
+      const reviewCountText = r.reviewCount ? ` (${r.reviewCount})` : '';
+      ratingHtml = `<div class="card-rating-row">
+        <span class="card-rating-stars">${stars}</span>
+        <span class="card-rating-num">${escHtml(r.rating)}</span>
+        <span class="card-rating-count">${reviewCountText}</span>
+      </div>`;
+    }
+
+    // Photo
+    let photoHtml = '';
+    if (r.photoUrl) {
+      photoHtml = `<div class="card-photo"><img src="${escHtml(r.photoUrl)}" alt="${escHtml(r.name)}" loading="lazy" onerror="this.parentElement.style.display='none'" /></div>`;
+    } else {
+      // Placeholder with icon
+      const catIcons = { 'Kafe': '☕', 'Restoran': '🍽️', 'Otel': '🏨', 'Apart': '🏨' };
+      const icon = Object.entries(catIcons).find(([k]) => (r.category || '').includes(k))?.[1] || '🏪';
+      photoHtml = `<div class="card-photo card-photo-placeholder"><span>${icon}</span></div>`;
+    }
+
+    // Working hours
+    let hoursHtml = '';
+    if (r.openHoursText) {
+      hoursHtml = `<div class="card-row"><span class="card-row-icon">🕐</span><span>${escHtml(r.openHoursText)}</span></div>`;
+    }
+
+    // Accessibility
+    let accessHtml = '';
+    if (r.accessibility && r.accessibility.length > 0) {
+      accessHtml = `<div class="card-row"><span class="card-row-icon">♿</span><span>${r.accessibility.map(a => escHtml(a)).join(', ')}</span></div>`;
+    }
+
+    // Coordinates
+    let coordsHtml = '';
+    if (r.lat && r.lng) {
+      coordsHtml = `<div class="card-row card-coords"><span class="card-row-icon">📌</span><span>${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}</span></div>`;
+    }
+
+    // Place ID
+    let placeIdHtml = '';
+    if (r.placeId) {
+      placeIdHtml = `<div class="card-row card-placeid"><span class="card-row-icon">🆔</span><span class="truncate">${escHtml(r.placeId)}</span></div>`;
+    }
+
     card.innerHTML = `
-      <div class="card-num">#${String(i + 1).padStart(2, '0')}</div>
-      <div class="card-name">${escHtml(r.name || '—')}</div>
-      ${r.category ? `<div class="card-cat">🏷️ ${escHtml(r.category)}</div>` : ''}
-      <div class="card-info">
-        ${r.address  ? `<div class="card-row"><span class="card-row-icon">📍</span><span>${escHtml(r.address)}</span></div>`  : ''}
-        ${r.phone    ? `<div class="card-row"><span class="card-row-icon">📞</span><span>${escHtml(r.phone)}</span></div>`    : ''}
-        ${r.rating   ? `<div class="card-row"><span class="card-rating">⭐ ${escHtml(r.rating)}</span></div>`                  : ''}
-      </div>
-      <div class="card-actions">
-        ${r.mapsUrl ? `<a class="card-btn primary" href="${escHtml(r.mapsUrl)}" target="_blank" rel="noreferrer">🗺️ Haritada Gör</a>` : ''}
-        ${r.phone   ? `<button class="card-btn" onclick="copyText('${escAttr(r.phone)}')">📋 Kopyala</button>`                         : ''}
+      ${photoHtml}
+      <div class="card-body">
+        <div class="card-header-row">
+          <span class="card-num">#${String(i + 1).padStart(2, '0')}</span>
+          <div class="card-badges">
+            ${statusBadge}
+            ${priceBadge}
+          </div>
+        </div>
+        <div class="card-name">${escHtml(r.name || '—')}</div>
+        ${r.category ? `<div class="card-cat">🏷️ ${escHtml(r.category)}</div>` : ''}
+        ${ratingHtml}
+        <div class="card-info">
+          ${r.address  ? `<div class="card-row"><span class="card-row-icon">📍</span><span>${escHtml(r.address)}</span></div>`  : ''}
+          ${r.phone    ? `<div class="card-row"><span class="card-row-icon">📞</span><span>${escHtml(r.phone)}</span></div>`    : ''}
+          ${hoursHtml}
+          ${accessHtml}
+          ${coordsHtml}
+          ${placeIdHtml}
+        </div>
+        <div class="card-actions">
+          ${r.mapsUrl ? `<a class="card-btn primary" href="${escHtml(r.mapsUrl)}" target="_blank" rel="noreferrer">🗺️ Haritada Gör</a>` : ''}
+          ${r.phone   ? `<button class="card-btn" onclick="copyText('${escAttr(r.phone)}')">📋 Kopyala</button>`                         : ''}
+        </div>
       </div>
     `;
 
@@ -218,7 +312,8 @@ function filterResults() {
     (r) =>
       (r.name    || '').toLowerCase().includes(q) ||
       (r.address || '').toLowerCase().includes(q) ||
-      (r.phone   || '').toLowerCase().includes(q)
+      (r.phone   || '').toLowerCase().includes(q) ||
+      (r.category || '').toLowerCase().includes(q)
   );
   renderCards(filtered);
   updateFilterCount(filtered.length, allResults.length);
